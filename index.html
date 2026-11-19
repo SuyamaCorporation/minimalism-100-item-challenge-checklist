@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ミニマリスト100アイテムチャレンジ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .progress-bar { transition: width 0.4s ease; }
+    .item-row:hover { background-color: #f9fafb; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-center text-gray-800 mb-1">🌿 ミニマリスト100アイテムチャレンジ</h1>
+    <p class="text-center text-gray-500 text-sm mb-6">所持品を棚卸しして100アイテム以内を目指そう</p>
+
+    <!-- Stats -->
+    <div class="bg-white rounded-2xl shadow p-5 mb-6">
+      <div class="flex justify-between items-end mb-2">
+        <span class="text-sm text-gray-600">キープ中のアイテム</span>
+        <span class="text-2xl font-bold text-green-600" id="keepCount">0</span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-4 mb-1">
+        <div id="progressBar" class="progress-bar h-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500" style="width:0%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-gray-400">
+        <span>0</span>
+        <span id="progressLabel">目標: 100アイテム</span>
+        <span>100</span>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mt-4 text-center">
+        <div class="bg-green-50 rounded-xl p-3">
+          <div class="text-xl font-bold text-green-600" id="totalKeep">0</div>
+          <div class="text-xs text-gray-500">キープ</div>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-3">
+          <div class="text-xl font-bold text-yellow-600" id="totalDonate">0</div>
+          <div class="text-xs text-gray-500">寄付・譲渡</div>
+        </div>
+        <div class="bg-red-50 rounded-xl p-3">
+          <div class="text-xl font-bold text-red-500" id="totalTrash">0</div>
+          <div class="text-xs text-gray-500">廃棄</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Item Form -->
+    <div class="bg-white rounded-2xl shadow p-5 mb-6">
+      <h2 class="font-semibold text-gray-700 mb-3">アイテムを追加</h2>
+      <div class="flex flex-col gap-3">
+        <input type="text" id="itemName" placeholder="アイテム名（例: 白シャツ）" maxlength="60"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
+        <div class="flex gap-2">
+          <select id="itemCategory" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
+            <option value="衣類">👕 衣類</option>
+            <option value="電子機器">💻 電子機器</option>
+            <option value="書籍">📚 書籍</option>
+            <option value="台所">🍳 台所</option>
+            <option value="その他">📦 その他</option>
+          </select>
+          <select id="itemStatus" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
+            <option value="keep">✅ キープ</option>
+            <option value="donate">💛 寄付・譲渡</option>
+            <option value="trash">🗑 廃棄</option>
+          </select>
+        </div>
+        <button onclick="addItem()"
+          class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+          + 追加する
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="flex gap-2 mb-3 flex-wrap">
+      <button onclick="setFilter('all')" id="filter-all" class="filter-btn active px-3 py-1.5 rounded-full text-sm font-medium bg-gray-800 text-white">すべて</button>
+      <button onclick="setFilter('衣類')" id="filter-衣類" class="filter-btn px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">👕 衣類</button>
+      <button onclick="setFilter('電子機器')" id="filter-電子機器" class="filter-btn px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">💻 電子機器</button>
+      <button onclick="setFilter('書籍')" id="filter-書籍" class="filter-btn px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">📚 書籍</button>
+      <button onclick="setFilter('台所')" id="filter-台所" class="filter-btn px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">🍳 台所</button>
+      <button onclick="setFilter('その他')" id="filter-その他" class="filter-btn px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">📦 その他</button>
+    </div>
+
+    <!-- Item List -->
+    <div id="itemList" class="space-y-2">
+      <div class="text-center text-gray-400 text-sm py-8" id="emptyMsg">アイテムを追加してください</div>
+    </div>
+
+    <!-- Clear Button -->
+    <div class="mt-6 text-center">
+      <button onclick="clearAll()" class="text-xs text-gray-400 hover:text-red-400 underline">すべてのデータをリセット</button>
+    </div>
+  </div>
+
+  <script>
+    let items = [];
+    let currentFilter = 'all';
+
+    const STATUS_LABELS = { keep: 'キープ', donate: '寄付・譲渡', trash: '廃棄' };
+    const STATUS_COLORS = {
+      keep: 'bg-green-100 text-green-700',
+      donate: 'bg-yellow-100 text-yellow-700',
+      trash: 'bg-red-100 text-red-500'
+    };
+
+    function load() {
+      const saved = localStorage.getItem('minimalism-items');
+      if (saved) {
+        try { items = JSON.parse(saved); } catch(e) { items = []; }
+      }
+      render();
+    }
+
+    function save() {
+      localStorage.setItem('minimalism-items', JSON.stringify(items));
+    }
+
+    function addItem() {
+      const nameEl = document.getElementById('itemName');
+      const name = nameEl.value.trim();
+      if (!name) { nameEl.focus(); return; }
+      const category = document.getElementById('itemCategory').value;
+      const status = document.getElementById('itemStatus').value;
+      items.push({ id: Date.now(), name, category, status });
+      nameEl.value = '';
+      save();
+      render();
+    }
+
+    function updateStatus(id, status) {
+      const item = items.find(i => i.id === id);
+      if (item) { item.status = status; save(); render(); }
+    }
+
+    function deleteItem(id) {
+      items = items.filter(i => i.id !== id);
+      save();
+      render();
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('bg-gray-800', 'text-white');
+        b.classList.add('bg-gray-100', 'text-gray-600');
+      });
+      const btn = document.getElementById('filter-' + f);
+      if (btn) {
+        btn.classList.add('bg-gray-800', 'text-white');
+        btn.classList.remove('bg-gray-100', 'text-gray-600');
+      }
+      render();
+    }
+
+    function render() {
+      const keepCount = items.filter(i => i.status === 'keep').length;
+      const donateCount = items.filter(i => i.status === 'donate').length;
+      const trashCount = items.filter(i => i.status === 'trash').length;
+
+      document.getElementById('keepCount').textContent = keepCount;
+      document.getElementById('totalKeep').textContent = keepCount;
+      document.getElementById('totalDonate').textContent = donateCount;
+      document.getElementById('totalTrash').textContent = trashCount;
+
+      const pct = Math.min((keepCount / 100) * 100, 100);
+      document.getElementById('progressBar').style.width = pct + '%';
+      const remaining = Math.max(0, 100 - keepCount);
+      document.getElementById('progressLabel').textContent =
+        keepCount <= 100 ? `あと ${remaining} アイテム削減可能` : `${keepCount - 100} アイテムオーバー`;
+
+      const filtered = currentFilter === 'all' ? items : items.filter(i => i.category === currentFilter);
+      const list = document.getElementById('itemList');
+      const emptyMsg = document.getElementById('emptyMsg');
+
+      if (filtered.length === 0) {
+        list.innerHTML = '';
+        if (!emptyMsg.parentNode) list.appendChild(emptyMsg);
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+
+      list.innerHTML = '';
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item-row bg-white rounded-xl shadow-sm p-3 flex items-center gap-3';
+
+        const catSpan = document.createElement('span');
+        catSpan.className = 'text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full whitespace-nowrap';
+        catSpan.textContent = item.category;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'flex-1 text-sm text-gray-800 truncate';
+        nameSpan.textContent = item.name;
+
+        const select = document.createElement('select');
+        select.className = 'text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none';
+        [['keep','✅ キープ'], ['donate','💛 寄付'], ['trash','🗑 廃棄']].forEach(([val, label]) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = label;
+          if (val === item.status) opt.selected = true;
+          select.appendChild(opt);
+        });
+        const itemId = item.id;
+        select.addEventListener('change', function() { updateStatus(itemId, this.value); });
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'text-gray-300 hover:text-red-400 text-lg leading-none';
+        delBtn.textContent = '×';
+        delBtn.addEventListener('click', function() { deleteItem(itemId); });
+
+        div.appendChild(catSpan);
+        div.appendChild(nameSpan);
+        div.appendChild(select);
+        div.appendChild(delBtn);
+        list.appendChild(div);
+      });
+    }
+
+    function clearAll() {
+      if (confirm('すべてのアイテムを削除しますか？この操作は取り消せません。')) {
+        items = [];
+        save();
+        render();
+      }
+    }
+
+    document.getElementById('itemName').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') addItem();
+    });
+
+    load();
+  </script>
+</body>
+</html>
